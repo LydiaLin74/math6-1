@@ -1,0 +1,967 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用質因數分解找因數 - 國小六年級數學探究工具</title>
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 圖卡操作互動 */
+    .factor-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .factor-card:active {
+      transform: scale(0.92);
+    }
+    .factor-card.dragging {
+      opacity: 0.35;
+      transform: scale(1.08);
+    }
+    .drop-active {
+      border-color: #3b82f6 !important;
+      background-color: #eff6ff !important;
+    }
+    @keyframes pulse-highlight {
+      0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .pulse-new {
+      animation: pulse-highlight 1.2s ease-out;
+    }
+    /* 自訂捲軸樣式 */
+    .custom-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-12 font-sans">
+
+  <!-- 頂端標題導航 -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-[1560px] mx-auto px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-lg sm:text-xl font-black flex items-center gap-2">
+          <svg class="w-6 h-6 inline-block text-amber-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+          </svg>
+          利用質因數分解找因數
+          <span class="text-xs bg-indigo-800 text-indigo-200 px-2 py-0.5 rounded border border-indigo-500 font-semibold hidden md:inline">大螢幕課堂互動版</span>
+        </h1>
+      </div>
+
+      <!-- 題目快選與設定 -->
+      <div class="flex items-center flex-wrap gap-2">
+        <div class="flex items-center gap-1 bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500 text-xs sm:text-sm">
+          <span class="text-indigo-200 font-bold">快選：</span>
+          <button onclick="quickSetNumber(24)" class="px-2 py-0.5 rounded bg-indigo-900/60 hover:bg-indigo-600 text-white font-bold transition">24</button>
+          <button onclick="quickSetNumber(36)" class="px-2 py-0.5 rounded bg-indigo-900/60 hover:bg-indigo-600 text-white font-bold transition">36</button>
+          <button onclick="quickSetNumber(48)" class="px-2 py-0.5 rounded bg-indigo-900/60 hover:bg-indigo-600 text-white font-bold transition">48</button>
+          <button onclick="quickSetNumber(60)" class="px-2 py-0.5 rounded bg-amber-400 text-slate-900 font-black transition">60</button>
+          <button onclick="quickSetNumber(72)" class="px-2 py-0.5 rounded bg-indigo-900/60 hover:bg-indigo-600 text-white font-bold transition">72</button>
+          <button onclick="quickSetNumber(90)" class="px-2 py-0.5 rounded bg-indigo-900/60 hover:bg-indigo-600 text-white font-bold transition">90</button>
+        </div>
+
+        <div class="flex items-center gap-1.5 bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500">
+          <label for="inputNumber" class="text-xs sm:text-sm font-bold whitespace-nowrap text-indigo-100">自訂：</label>
+          <input id="inputNumber" type="number" min="2" max="500" value="60" class="w-16 px-1.5 py-0.5 text-center font-black text-slate-900 bg-white rounded text-base focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <button id="btnGenerate" class="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-3 py-1 rounded text-xs sm:text-sm shadow transition">
+            產生
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主視窗容器 -->
+  <main class="max-w-[1560px] mx-auto px-3 sm:px-4 mt-3 sm:mt-4 space-y-4">
+    
+    <!-- 核心互動儀表板：左側（佔 6/12）＋ 右側記錄區（佔 6/12，各佔一半寬度） -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+      
+      <!-- 左側操作專案 (佔比 6/12) -->
+      <div class="xl:col-span-6 flex flex-col gap-3">
+        
+        <!-- 步驟一：分解式與圖卡盤 -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <div class="flex flex-wrap justify-between items-center pb-2.5 border-b border-slate-100 gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs sm:text-sm font-black bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded">第一步</span>
+              <span class="font-extrabold text-slate-800 text-base sm:text-lg">質因數圖卡盤</span>
+              <span id="poolCardCount" class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded ml-1">未選: 4 張</span>
+            </div>
+            <!-- 大字體分解算式 -->
+            <div id="equationDisplay" class="text-xl sm:text-2xl font-black text-indigo-700 font-mono tracking-wider">
+              60 = 2 × 2 × 3 × 5
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <div id="cardPool" 
+                 ondragover="handleDragOver(event)" 
+                 ondrop="handleDropToPool(event)"
+                 class="min-h-[105px] p-3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/80 flex flex-wrap items-center gap-3 transition-colors">
+              <!-- 圖卡由 JS 動態生成 -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 步驟二：因數組合工作區與即時算式 -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-blue-200 ring-2 ring-blue-50 flex-1 flex flex-col justify-between">
+          <div>
+            <div class="flex flex-wrap justify-between items-center pb-2.5 border-b border-slate-100 gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs sm:text-sm font-black bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded">第二步</span>
+                <span class="font-extrabold text-slate-800 text-base sm:text-lg">組合工作區</span>
+                <span class="text-xs text-slate-400 hidden sm:inline">（點擊或拖曳圖卡進出）</span>
+              </div>
+              <button id="btnClearComb" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs sm:text-sm border border-slate-300 transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                清空工作區
+              </button>
+            </div>
+
+            <!-- 拖曳放置框 -->
+            <div class="mt-3">
+              <div id="combinationDropzone" 
+                   ondragover="handleDragOver(event)" 
+                   ondragleave="handleDragLeave(event)"
+                   ondrop="handleDropToComb(event)"
+                   class="min-h-[135px] p-3 rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/40 flex flex-wrap items-center content-start gap-3 transition-all relative">
+                <div id="dropzonePlaceholder" class="absolute inset-0 flex items-center justify-center text-blue-400 pointer-events-none gap-1.5">
+                  <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span class="text-sm font-bold">點選上方圖卡加入組合</span>
+                </div>
+                <div id="combCardsContainer" class="flex flex-wrap gap-3 z-10 w-full"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 即時計算橫條 -->
+          <div class="mt-3.5 p-3.5 bg-gradient-to-r from-indigo-50 to-blue-50 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2 sm:gap-3">
+              <span class="text-xs sm:text-sm font-bold text-slate-500 uppercase">乘積算式：</span>
+              <span id="calcFormula" class="text-lg sm:text-2xl font-black font-mono text-slate-800">
+                尚未選取圖卡
+              </span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+              <span class="text-xs sm:text-sm font-bold text-slate-600">產生因數：</span>
+              <div id="resultFactorBadge" class="text-2xl sm:text-3xl font-black text-indigo-700 bg-white px-3.5 py-0.5 rounded-lg shadow-sm border border-indigo-200 min-w-[56px] text-center">
+                -
+              </div>
+              <button id="btnConfirmCombination" disabled class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-black rounded-lg text-xs sm:text-sm shadow-sm transition">
+                確認
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- 右側記錄區 (佔比 6/12，剛好佔頁面的一半寬度) -->
+      <div class="xl:col-span-6 flex flex-col">
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex-1 flex flex-col h-full">
+          
+          <div class="flex flex-wrap justify-between items-center pb-2.5 border-b border-slate-100 gap-2">
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg sm:text-xl font-black text-slate-800">已發現的因數記錄區</h2>
+              <span id="factorProgressBadge" class="bg-amber-100 text-amber-900 text-xs sm:text-sm font-black px-2.5 py-0.5 rounded-full border border-amber-300">
+                1 / 12 個因數
+              </span>
+            </div>
+            
+            <div class="flex items-center gap-1.5">
+              <button id="btnToggleAllFactors" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-lg shadow transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                <span id="btnToggleText">顯示解答</span>
+              </button>
+              <button id="btnResetAll" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-xs sm:text-sm border border-slate-300 transition">
+                重來
+              </button>
+            </div>
+          </div>
+
+          <!-- 全找到祝賀橫幅 -->
+          <div id="allDoneBanner" class="hidden my-2 p-2.5 bg-emerald-50 border-2 border-emerald-400 rounded-lg text-emerald-800 font-black text-center text-sm sm:text-base animate-bounce">
+            🎉 太棒了！已全部找齊此數的所有因數！
+          </div>
+
+          <!-- 分類記錄滾動容器 -->
+          <div id="factorsGroupedContainer" class="mt-3 space-y-3 overflow-y-auto pr-1 max-h-[440px] xl:max-h-[480px] custom-scroll flex-1">
+            <!-- JS 動態生成各分類列 -->
+          </div>
+
+          <!-- 底部重點提示 -->
+          <div class="mt-3 pt-2.5 border-t border-slate-100 text-xs sm:text-sm text-amber-950 bg-amber-50/80 p-2.5 rounded-lg flex items-center gap-2">
+            <span class="font-black text-rose-600 shrink-0 text-sm sm:text-base">【1】的由來：</span>
+            <span>「不選任何圖卡」時得到的因數即為 <strong>1</strong>，因此 1 是所有整數的因數！</span>
+          </div>
+
+        </section>
+      </div>
+
+    </div>
+
+    <!-- 區塊 3: 質因數數量足夠嗎？（動手配對、思考、送出檢核） -->
+    <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-purple-200 ring-2 ring-purple-50">
+      <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <span class="text-xs sm:text-sm font-black bg-purple-100 text-purple-800 px-2.5 py-1 rounded-md">思考探究</span>
+          <h2 class="text-base sm:text-lg font-extrabold text-slate-800">質因數數量足夠嗎？（動手配對與檢核）</h2>
+        </div>
+        <div class="text-xs sm:text-sm text-slate-500">判斷一個數是否為因數，必須檢查質因數的「數量是否足夠」</div>
+      </div>
+
+      <!-- 出題與輸入 -->
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <div class="md:col-span-7 flex flex-wrap items-center gap-2">
+          <label for="checkTestInput" class="text-xs sm:text-sm font-bold text-slate-700">測試數：</label>
+          <input id="checkTestInput" type="number" min="2" max="1000" placeholder="例如: 18, 12, 8" class="w-28 sm:w-32 px-2.5 py-1.5 text-base font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:outline-none">
+          <button id="btnStartChallenge" class="bg-purple-600 hover:bg-purple-700 text-white font-extrabold px-3.5 py-1.5 text-sm rounded-lg shadow transition">
+            開始思考配對
+          </button>
+        </div>
+
+        <div class="md:col-span-5 flex flex-wrap gap-1 text-xs sm:text-sm text-slate-500 items-center justify-end">
+          <span class="font-bold">常考題：</span>
+          <button onclick="quickTestChallenge(18)" class="px-2.5 py-0.5 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded border border-purple-200">測 18</button>
+          <button onclick="quickTestChallenge(12)" class="px-2.5 py-0.5 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded border border-purple-200">測 12</button>
+          <button onclick="quickTestChallenge(8)" class="px-2.5 py-0.5 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded border border-purple-200">測 8</button>
+          <button onclick="quickTestChallenge(9)" class="px-2.5 py-0.5 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded border border-purple-200">測 9</button>
+          <button onclick="quickTestChallenge(15)" class="px-2.5 py-0.5 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded border border-purple-200">測 15</button>
+        </div>
+      </div>
+
+      <!-- 配對工作台 (預設隱藏) -->
+      <div id="interactiveChallengeArea" class="mt-3 hidden space-y-3">
+        
+        <!-- 卡片借調工作區 -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+          <!-- 目標數圖卡 -->
+          <div class="md:col-span-6 bg-slate-50 p-3 rounded-xl border border-slate-300">
+            <div class="text-xs sm:text-sm font-bold text-slate-600 mb-1.5 flex justify-between">
+              <span>目標數 (<span id="sourceTargetNum">60</span>) 的圖卡：</span>
+              <span class="text-slate-400">點擊圖卡依序放入空格</span>
+            </div>
+            <div id="sourceCardsPool" class="flex flex-wrap gap-2 min-h-[56px] items-center p-2 bg-white rounded-lg border border-slate-200"></div>
+          </div>
+
+          <!-- 待測數需求卡槽 -->
+          <div class="md:col-span-6 bg-purple-50/50 p-3 rounded-xl border border-purple-300">
+            <div class="text-xs sm:text-sm font-bold text-purple-800 mb-1.5 flex justify-between">
+              <span>待測數 (<span id="sourceTestNum">18</span>) 的需求槽：</span>
+              <span id="slotsStatusText" class="text-purple-600 font-bold">尚未填滿</span>
+            </div>
+            <div id="targetSlotsContainer" class="flex flex-wrap gap-1.5 min-h-[56px] items-center p-2 bg-white rounded-lg border border-purple-200"></div>
+          </div>
+        </div>
+
+        <!-- 學生判斷單選與送出按鈕 -->
+        <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-xs sm:text-sm font-black text-amber-950">你的判斷：</span>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-300 hover:border-indigo-400 text-xs sm:text-sm">
+              <input type="radio" name="studentAnswerChoice" value="yes" class="w-4 h-4 text-indigo-600">
+              <span class="font-bold text-slate-800">✅ 數量足夠！是因數</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-300 hover:border-indigo-400 text-xs sm:text-sm">
+              <input type="radio" name="studentAnswerChoice" value="no" class="w-4 h-4 text-indigo-600">
+              <span class="font-bold text-slate-800">❌ 數量不足！不是因數</span>
+            </label>
+          </div>
+          <button id="btnSubmitVerification" class="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-1.5 text-xs sm:text-sm rounded-lg shadow transition">
+            核對判斷
+          </button>
+        </div>
+
+        <!-- 檢核回饋面板 -->
+        <div id="verificationFeedback" class="hidden p-3.5 rounded-xl border transition-all text-xs sm:text-sm"></div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JavaScript 核心程式碼 -->
+  <script>
+    // ==========================================
+    // 狀態變數
+    // ==========================================
+    let currentTargetNumber = 60;
+    let primeFactors = [];
+    let factorCards = [];
+    let foundFactors = new Set([1]);
+    let allActualFactors = [];
+    let showAllAnswerMode = false;
+    let draggedCardId = null;
+
+    // 思考探究配對區狀態
+    let currentTestNum = null;
+    let testNumPrimeFactors = [];
+    let pairingSourceCards = [];
+    let pairingSlots = [];
+
+    // ==========================================
+    // 數學輔助函式
+    // ==========================================
+    function getPrimeFactors(n) {
+      const factors = [];
+      let divisor = 2;
+      let temp = n;
+      while (temp >= 2) {
+        if (temp % divisor === 0) {
+          factors.push(divisor);
+          temp = Math.floor(temp / divisor);
+        } else {
+          divisor++;
+          if (divisor * divisor > temp) {
+            if (temp > 1) {
+              factors.push(temp);
+              break;
+            }
+          }
+        }
+      }
+      return factors;
+    }
+
+    function getAllDivisors(n) {
+      const list = [];
+      for (let i = 1; i * i <= n; i++) {
+        if (n % i === 0) {
+          list.push(i);
+          if (i * i !== n) list.push(Math.floor(n / i));
+        }
+      }
+      return list.sort((a, b) => a - b);
+    }
+
+    function getCountMap(arr) {
+      const map = {};
+      for (const num of arr) {
+        map[num] = (map[num] || 0) + 1;
+      }
+      return map;
+    }
+
+    // ==========================================
+    // 初始化題目
+    // ==========================================
+    function initProblem(number) {
+      if (number < 2 || isNaN(number)) {
+        showFloatingToast("請輸入大於 1 的正整數！");
+        return;
+      }
+      currentTargetNumber = parseInt(number, 10);
+      document.getElementById('inputNumber').value = currentTargetNumber;
+
+      primeFactors = getPrimeFactors(currentTargetNumber);
+      allActualFactors = getAllDivisors(currentTargetNumber);
+
+      factorCards = primeFactors.map((val, idx) => ({
+        id: `card_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+        val: val,
+        inComb: false
+      }));
+
+      foundFactors = new Set([1]);
+      showAllAnswerMode = false;
+      document.getElementById('btnToggleText').textContent = "顯示解答";
+      document.getElementById('interactiveChallengeArea').classList.add('hidden');
+
+      renderEquation();
+      renderCards();
+      updateCalculation();
+      renderGroupedFactorsList();
+      checkAllFoundStatus();
+    }
+
+    function quickSetNumber(num) {
+      initProblem(num);
+    }
+
+    function renderEquation() {
+      const eqEl = document.getElementById('equationDisplay');
+      eqEl.textContent = `${currentTargetNumber} = ${primeFactors.join(' × ')}`;
+    }
+
+    // ==========================================
+    // 圖卡渲染與操作
+    // ==========================================
+    function createCardElement(card) {
+      const el = document.createElement('div');
+      el.id = card.id;
+      el.draggable = true;
+      el.className = `factor-card cursor-pointer select-none inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl font-black text-lg sm:text-2xl shadow-sm border-2 ${
+        card.inComb
+          ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-amber-200'
+          : 'bg-white text-indigo-900 border-indigo-200 hover:border-indigo-400 hover:shadow-md'
+      }`;
+      el.textContent = card.val;
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleCardLocation(card.id);
+      });
+
+      el.addEventListener('dragstart', (e) => {
+        draggedCardId = card.id;
+        el.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', card.id);
+      });
+
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+        draggedCardId = null;
+      });
+
+      return el;
+    }
+
+    function renderCards() {
+      const pool = document.getElementById('cardPool');
+      const combContainer = document.getElementById('combCardsContainer');
+      const placeholder = document.getElementById('dropzonePlaceholder');
+      const poolCountEl = document.getElementById('poolCardCount');
+
+      pool.innerHTML = '';
+      combContainer.innerHTML = '';
+
+      let poolCount = 0;
+      let combCount = 0;
+
+      factorCards.forEach(card => {
+        const cardEl = createCardElement(card);
+        if (card.inComb) {
+          combContainer.appendChild(cardEl);
+          combCount++;
+        } else {
+          pool.appendChild(cardEl);
+          poolCount++;
+        }
+      });
+
+      poolCountEl.textContent = `未選: ${poolCount} 張`;
+
+      if (combCount > 0) {
+        placeholder.classList.add('hidden');
+      } else {
+        placeholder.classList.remove('hidden');
+      }
+    }
+
+    function toggleCardLocation(id) {
+      const card = factorCards.find(c => c.id === id);
+      if (card) {
+        card.inComb = !card.inComb;
+        renderCards();
+        updateCalculation();
+      }
+    }
+
+    // 拖曳放置處理
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (e.currentTarget.id === 'combinationDropzone') {
+        e.currentTarget.classList.add('drop-active');
+      }
+    }
+
+    function handleDragLeave(e) {
+      if (e.currentTarget.id === 'combinationDropzone') {
+        e.currentTarget.classList.remove('drop-active');
+      }
+    }
+
+    function handleDropToComb(e) {
+      e.preventDefault();
+      document.getElementById('combinationDropzone').classList.remove('drop-active');
+      const cardId = e.dataTransfer.getData('text/plain') || draggedCardId;
+      const card = factorCards.find(c => c.id === cardId);
+      if (card && !card.inComb) {
+        card.inComb = true;
+        renderCards();
+        updateCalculation();
+      }
+    }
+
+    function handleDropToPool(e) {
+      e.preventDefault();
+      const cardId = e.dataTransfer.getData('text/plain') || draggedCardId;
+      const card = factorCards.find(c => c.id === cardId);
+      if (card && card.inComb) {
+        card.inComb = false;
+        renderCards();
+        updateCalculation();
+      }
+    }
+
+    // ==========================================
+    // 即時計算與乘積判定
+    // ==========================================
+    function updateCalculation() {
+      const combCards = factorCards.filter(c => c.inComb);
+      const formulaEl = document.getElementById('calcFormula');
+      const badgeEl = document.getElementById('resultFactorBadge');
+      const confirmBtn = document.getElementById('btnConfirmCombination');
+
+      if (combCards.length === 0) {
+        formulaEl.innerHTML = `<span class="text-slate-400 font-normal text-xs sm:text-sm">不選質因數（對應因數 1）</span>`;
+        badgeEl.textContent = '-';
+        badgeEl.className = "text-2xl sm:text-3xl font-black text-slate-300 bg-white px-3.5 py-0.5 rounded-lg shadow-sm border border-slate-200 min-w-[56px] text-center";
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '確認';
+        return;
+      }
+
+      const nums = combCards.map(c => c.val);
+      const product = nums.reduce((acc, cur) => acc * cur, 1);
+      formulaEl.textContent = nums.join(' × ') + ` = ${product}`;
+      badgeEl.textContent = product;
+      badgeEl.className = "text-2xl sm:text-3xl font-black text-emerald-700 bg-emerald-50 px-3.5 py-0.5 rounded-lg shadow-sm border border-emerald-300 min-w-[56px] text-center";
+
+      const alreadyFound = foundFactors.has(product);
+      confirmBtn.disabled = alreadyFound;
+      confirmBtn.textContent = alreadyFound ? '已記錄' : '確認';
+    }
+
+    function confirmCurrentCombination() {
+      const combCards = factorCards.filter(c => c.inComb);
+      if (combCards.length === 0) {
+        showFloatingToast('請先選擇至少一張質因數圖卡！');
+        return;
+      }
+
+      const product = combCards.map(c => c.val).reduce((acc, cur) => acc * cur, 1);
+
+      if (foundFactors.has(product)) {
+        showFloatingToast(`因數 ${product} 已經記錄過了！`);
+        updateCalculation();
+        return;
+      }
+
+      foundFactors.add(product);
+      renderGroupedFactorsList();
+      checkAllFoundStatus();
+      showFloatingToast(`已記錄因數 ${product}`);
+
+      // 確認後自動清空工作區，將所有圖卡送回上方圖卡盤
+      factorCards.forEach(c => c.inComb = false);
+      renderCards();
+      updateCalculation();
+    }
+
+    // ==========================================
+    // 分組渲染因數記錄區 (單一圖卡不寫等式，多張圖卡顯示完整算式)
+    // ==========================================
+    function renderGroupedFactorsList() {
+      const container = document.getElementById('factorsGroupedContainer');
+      const progressBadge = document.getElementById('factorProgressBadge');
+      container.innerHTML = '';
+
+      const totalCardCount = primeFactors.length;
+      const groups = {};
+      for (let k = 0; k <= totalCardCount; k++) {
+        groups[k] = [];
+      }
+
+      allActualFactors.forEach(d => {
+        if (d === 1) {
+          groups[0].push(d);
+        } else {
+          const dFactors = getPrimeFactors(d);
+          const k = dFactors.length;
+          if (groups[k]) groups[k].push(d);
+        }
+      });
+
+      for (let k = 0; k <= totalCardCount; k++) {
+        const actualListInGroup = groups[k];
+        if (!actualListInGroup || actualListInGroup.length === 0) continue;
+
+        const foundInGroup = actualListInGroup.filter(d => foundFactors.has(d));
+        const isGroupComplete = foundInGroup.length === actualListInGroup.length;
+
+        let groupTitle = "";
+        if (k === 0) groupTitle = "不選質因數（0 張卡）";
+        else if (k === 1) groupTitle = "只選 1 個（單張卡）";
+        else if (k === 2) groupTitle = "兩兩組合（選 2 張卡）";
+        else if (k === 3) groupTitle = "3 個組合（選 3 張卡）";
+        else if (k === totalCardCount) groupTitle = `全部組合（選全部 ${k} 張）`;
+        else groupTitle = `${k} 個組合（選 ${k} 張卡）`;
+
+        const groupRow = document.createElement('div');
+        groupRow.className = `p-3 sm:p-3.5 rounded-xl border transition-all ${
+          isGroupComplete 
+            ? 'bg-slate-50/70 border-slate-200' 
+            : 'bg-white/90 border-dashed border-indigo-200 shadow-sm'
+        }`;
+
+        // 標題列
+        const header = document.createElement('div');
+        header.className = "flex justify-between items-center mb-2";
+        header.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full ${isGroupComplete ? 'bg-emerald-500' : 'bg-amber-400'}"></span>
+            <span class="font-black text-sm sm:text-base text-slate-800 tracking-wide">${groupTitle}</span>
+          </div>
+          <span class="text-xs sm:text-sm font-black px-2 py-0.5 rounded-full ${
+            isGroupComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+          }">${foundInGroup.length} / ${actualListInGroup.length}</span>
+        `;
+        groupRow.appendChild(header);
+
+        // 因數徽章列
+        const itemsWrap = document.createElement('div');
+        itemsWrap.className = "flex flex-wrap gap-2.5 items-center";
+
+        if (k === 0) {
+          const oneEl = document.createElement('div');
+          oneEl.className = "px-3.5 py-1.5 bg-rose-100 text-rose-900 rounded-xl shadow-sm border border-rose-300 flex items-center justify-center font-mono font-black text-base sm:text-lg";
+          oneEl.textContent = "1 (不選圖卡)";
+          itemsWrap.appendChild(oneEl);
+        } else {
+          actualListInGroup.forEach(d => {
+            const hasFound = foundFactors.has(d);
+            const badge = document.createElement('div');
+            const dFactors = getPrimeFactors(d);
+            
+            // 單一圖卡不寫等式，直接顯示數字本身；多張圖卡顯示完整乘積算式
+            let displayText = (k === 1) ? `${d}` : `${dFactors.join(' × ')} = ${d}`;
+
+            if (hasFound) {
+              badge.className = "px-3.5 py-1.5 bg-indigo-50 text-indigo-900 rounded-xl shadow-sm border border-indigo-200 font-mono font-black text-base sm:text-lg";
+              badge.textContent = displayText;
+            } else if (showAllAnswerMode) {
+              badge.className = "px-3.5 py-1.5 bg-amber-50/70 text-amber-900 border border-dashed border-amber-300 rounded-xl font-mono font-bold text-base sm:text-lg";
+              badge.textContent = displayText;
+            } else {
+              badge.className = "px-3.5 py-1.5 bg-slate-50 text-slate-400 border border-dashed border-slate-200 rounded-xl font-mono font-bold text-base sm:text-lg";
+              badge.textContent = "?";
+            }
+            itemsWrap.appendChild(badge);
+          });
+        }
+
+        groupRow.appendChild(itemsWrap);
+        container.appendChild(groupRow);
+      }
+
+      progressBadge.textContent = `${foundFactors.size} / ${allActualFactors.length} 個因數`;
+    }
+
+    function checkAllFoundStatus() {
+      const banner = document.getElementById('allDoneBanner');
+      if (foundFactors.size === allActualFactors.length) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    // ==========================================
+    // 質因數數量足夠嗎？（思考探究配對）
+    // ==========================================
+    function startTestChallenge(testNum) {
+      if (testNum < 2 || isNaN(testNum)) {
+        showFloatingToast("請輸入有效的大於 1 的正整數！");
+        return;
+      }
+      currentTestNum = parseInt(testNum, 10);
+      testNumPrimeFactors = getPrimeFactors(currentTestNum);
+
+      const challengeArea = document.getElementById('interactiveChallengeArea');
+      const feedback = document.getElementById('verificationFeedback');
+      challengeArea.classList.remove('hidden');
+      feedback.classList.add('hidden');
+
+      document.querySelectorAll('input[name="studentAnswerChoice"]').forEach(r => r.checked = false);
+
+      document.getElementById('sourceTargetNum').textContent = currentTargetNumber;
+      document.getElementById('sourceTestNum').textContent = currentTestNum;
+
+      pairingSourceCards = factorCards.map((c, i) => ({
+        id: `src_${i}_${c.val}`,
+        val: c.val,
+        pairedSlotId: null
+      }));
+
+      pairingSlots = testNumPrimeFactors.map((val, i) => ({
+        slotId: `slot_${i}_${val}`,
+        requiredVal: val,
+        matchedCardId: null
+      }));
+
+      renderPairingWorkspace();
+    }
+
+    function quickTestChallenge(num) {
+      document.getElementById('checkTestInput').value = num;
+      startTestChallenge(num);
+    }
+
+    function renderPairingWorkspace() {
+      const sourcePool = document.getElementById('sourceCardsPool');
+      const slotsContainer = document.getElementById('targetSlotsContainer');
+      const statusText = document.getElementById('slotsStatusText');
+
+      sourcePool.innerHTML = '';
+      slotsContainer.innerHTML = '';
+
+      let allFilled = true;
+
+      pairingSourceCards.forEach(card => {
+        const isUsed = card.pairedSlotId !== null;
+        const btn = document.createElement('div');
+        btn.className = `w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-lg sm:text-xl flex items-center justify-center transition border-2 ${
+          isUsed 
+            ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-300 shadow-sm cursor-pointer active:scale-95'
+        }`;
+        btn.textContent = card.val;
+
+        if (!isUsed) {
+          btn.title = `點擊將 ${card.val} 放入下一個空格`;
+          btn.addEventListener('click', () => attemptPairCard(card));
+        }
+        sourcePool.appendChild(btn);
+      });
+
+      pairingSlots.forEach((slot, index) => {
+        const slotDiv = document.createElement('div');
+        const isMatched = slot.matchedCardId !== null;
+
+        if (!isMatched) allFilled = false;
+
+        slotDiv.className = `w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black transition border-2 ${
+          isMatched
+            ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+            : 'bg-purple-50 text-purple-300 border-dashed border-purple-300'
+        }`;
+
+        if (isMatched) {
+          const matchedCard = pairingSourceCards.find(c => c.id === slot.matchedCardId);
+          slotDiv.innerHTML = `<span class="text-lg sm:text-xl leading-none">${matchedCard ? matchedCard.val : ''}</span>`;
+          slotDiv.title = "點擊可取回圖卡";
+          slotDiv.className += " cursor-pointer hover:bg-emerald-600";
+          slotDiv.addEventListener('click', () => unpairSlot(slot));
+        } else {
+          // 空槽只提示需要幾張卡，不透露應放入哪一個質因數
+          slotDiv.innerHTML = ``;
+        }
+        slotsContainer.appendChild(slotDiv);
+
+        // 空格之間顯示乘號，呈現乘法組合結構
+        if (index < pairingSlots.length - 1) {
+          const times = document.createElement('span');
+          times.className = "text-lg sm:text-xl font-black text-purple-500 px-0.5";
+          times.textContent = "×";
+          slotsContainer.appendChild(times);
+        }
+      });
+
+      const filledCount = pairingSlots.filter(s => s.matchedCardId !== null).length;
+      if (allFilled) {
+        statusText.textContent = "已放滿";
+        statusText.className = "text-emerald-600 font-black";
+      } else {
+        statusText.textContent = `${filledCount} / ${pairingSlots.length} 張`;
+        statusText.className = "text-purple-600 font-bold";
+      }
+    }
+
+    function attemptPairCard(card) {
+      // 不顯示正確答案，但會檢查這張卡是否為待測數目前仍需要的質因數
+      const neededSlots = pairingSlots.filter(s => s.requiredVal === card.val);
+      const emptyNeededSlot = neededSlots.find(s => s.matchedCardId === null);
+
+      if (emptyNeededSlot) {
+        // 此質因數仍有需求：放入第一個空白需求槽
+        const visualEmptySlot = pairingSlots.find(s => s.matchedCardId === null);
+        if (visualEmptySlot) {
+          // 保留真正需求值，僅交換顯示位置，讓畫面仍是依點選順序填入
+          const tempRequired = visualEmptySlot.requiredVal;
+          visualEmptySlot.requiredVal = emptyNeededSlot.requiredVal;
+          emptyNeededSlot.requiredVal = tempRequired;
+
+          visualEmptySlot.matchedCardId = card.id;
+          card.pairedSlotId = visualEmptySlot.slotId;
+          renderPairingWorkspace();
+        }
+      } else {
+        const alreadyUsedCount = pairingSlots.filter(
+          s => s.requiredVal === card.val && s.matchedCardId !== null
+        ).length;
+
+        if (neededSlots.length === 0) {
+          showFloatingToast("這個待測數不需要此卡片喔！");
+        } else if (alreadyUsedCount >= neededSlots.length) {
+          showFloatingToast("這個待測數不需要再使用此卡片喔！");
+        } else {
+          showFloatingToast("這張卡片目前不能放入需求槽喔！");
+        }
+      }
+    }
+
+    function unpairSlot(slot) {
+      const card = pairingSourceCards.find(c => c.id === slot.matchedCardId);
+      if (card) {
+        card.pairedSlotId = null;
+      }
+      slot.matchedCardId = null;
+      renderPairingWorkspace();
+    }
+
+    function verifyStudentChoice() {
+      const selectedRadio = document.querySelector('input[name="studentAnswerChoice"]:checked');
+      if (!selectedRadio) {
+        showFloatingToast("請先選擇你的判斷（是因數 或 不是因數）喔！");
+        return;
+      }
+
+      const studentSaysYes = selectedRadio.value === 'yes';
+      const targetCountMap = getCountMap(primeFactors);
+      const testCountMap = getCountMap(testNumPrimeFactors);
+      let mathematicallyIsFactor = true;
+      const lackReasons = [];
+
+      for (const prime in testCountMap) {
+        const req = testCountMap[prime];
+        const have = targetCountMap[prime] || 0;
+        if (have < req) {
+          mathematicallyIsFactor = false;
+          if (have === 0) {
+            lackReasons.push(`待測數需要質因數 <strong>${prime}</strong>，但 ${currentTargetNumber} 完全沒有 ${prime}。`);
+          } else {
+            lackReasons.push(`待測數需要 <strong>${req} 個 ${prime}</strong>，但 ${currentTargetNumber} 只有 <strong>${have} 個 ${prime}</strong>（缺少 ${req - have} 個）。`);
+          }
+        }
+      }
+
+      const isStudentCorrect = (studentSaysYes === mathematicallyIsFactor);
+      const feedback = document.getElementById('verificationFeedback');
+      feedback.classList.remove('hidden');
+
+      if (isStudentCorrect) {
+        feedback.className = "p-3.5 sm:p-4 rounded-xl border bg-emerald-50 border-emerald-300 text-emerald-950";
+        feedback.innerHTML = `
+          <div class="flex items-center gap-2 text-base sm:text-lg font-black text-emerald-800">
+            <span>🎉 太棒了！你的判斷完全正確！</span>
+          </div>
+          <div class="mt-2 space-y-1 sm:text-base">
+            <div>• ${currentTestNum} = ${testNumPrimeFactors.join(' × ')}</div>
+            <div>• ${currentTargetNumber} = ${primeFactors.join(' × ')}</div>
+            ${mathematicallyIsFactor 
+              ? `<div class="text-emerald-800 font-bold mt-1.5">目標數 ${currentTargetNumber} 的質因數圖卡數量完全足夠，所以 ${currentTestNum} 確實是 ${currentTargetNumber} 的因數！</div>`
+              : `<div class="text-rose-800 font-bold mt-1.5">${lackReasons.join('<br>')}所以 ${currentTestNum} 不是 ${currentTargetNumber} 的因數！</div>`
+            }
+          </div>
+        `;
+      } else {
+        feedback.className = "p-3.5 sm:p-4 rounded-xl border bg-rose-50 border-rose-300 text-rose-950";
+        feedback.innerHTML = `
+          <div class="flex items-center gap-2 text-base sm:text-lg font-black text-rose-800">
+            <span>💡 哎呀！判斷有誤，再想想看喔！</span>
+          </div>
+          <div class="mt-2 space-y-1 sm:text-base">
+            ${mathematicallyIsFactor 
+              ? `<div>其實 ${currentTargetNumber} 的圖卡是可以完全滿足 ${currentTestNum} 的卡槽的！它是因數喔。</div>`
+              : `<div class="text-rose-900">${lackReasons.join('<br>')}</div><div class="mt-1.5 font-bold">因為數量不足，無法組合出 ${currentTestNum}，所以它不是因數喔！</div>`
+            }
+          </div>
+        `;
+      }
+    }
+
+    // ==========================================
+    // 提示浮條
+    // ==========================================
+    function showFloatingToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = "fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-xl transition-opacity duration-300 pointer-events-none";
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 2200);
+    }
+
+    // ==========================================
+    // 事件監聽掛載
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('btnGenerate').addEventListener('click', () => {
+        const val = parseInt(document.getElementById('inputNumber').value, 10);
+        initProblem(val);
+      });
+
+      document.getElementById('inputNumber').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const val = parseInt(e.target.value, 10);
+          initProblem(val);
+        }
+      });
+
+      document.getElementById('btnConfirmCombination').addEventListener('click', () => {
+        confirmCurrentCombination();
+      });
+
+      document.getElementById('btnClearComb').addEventListener('click', () => {
+        factorCards.forEach(c => c.inComb = false);
+        renderCards();
+        updateCalculation();
+      });
+
+      document.getElementById('btnResetAll').addEventListener('click', () => {
+        initProblem(currentTargetNumber);
+      });
+
+      document.getElementById('btnToggleAllFactors').addEventListener('click', () => {
+        showAllAnswerMode = !showAllAnswerMode;
+        document.getElementById('btnToggleText').textContent = showAllAnswerMode 
+          ? "隱藏解答" 
+          : "顯示解答";
+        renderGroupedFactorsList();
+      });
+
+      document.getElementById('btnStartChallenge').addEventListener('click', () => {
+        const val = parseInt(document.getElementById('checkTestInput').value, 10);
+        startTestChallenge(val);
+      });
+
+      document.getElementById('checkTestInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const val = parseInt(e.target.value, 10);
+          startTestChallenge(val);
+        }
+      });
+
+      document.getElementById('btnSubmitVerification').addEventListener('click', () => {
+        verifyStudentChoice();
+      });
+
+      // 初始化預設值 60
+      initProblem(60);
+    });
+  </script>
+</body>
+</html>
